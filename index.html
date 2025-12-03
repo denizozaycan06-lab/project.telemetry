@@ -152,47 +152,64 @@
         <div class="status-log" id="status-text">SYSTEM STANDBY</div>
     </div>
 
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    
+    
     <script>
-        // --- 3. JavaScript: Veri Bağlantısı ---
-        
-        async function updateDashboard() {
-            try {
-                // Rastgele sayı ekleyerek önbelleği (cache) kırıyoruz
-                const response = await fetch('data.json?t=' + Date.now());
-                const data = await response.json();
 
-                // Verileri Yerleştir
-                document.getElementById('rpm').innerText = data.rpm;
-                document.getElementById('speed').innerText = String(data.speed).padStart(3, '0');
-                document.getElementById('temp').innerText = data.temp;
-                document.getElementById('gear').innerText = data.gear;
-                document.getElementById('oil').innerText = data.oil;
-                document.getElementById('status-text').innerText = `> ECU STATUS: ${data.status}`;
-                document.getElementById('conn-status').innerText = "CONNECTED • LIVE";
-                document.getElementById('conn-status').style.color = "#0f0";
+       const socket = io('http://127.0.0.1:5000', {
+        transports: ['websocket', 'polling']
+        });
 
-                // RPM Barı Hesapla
-                const percent = (data.rpm / 8250) * 100;
-                const bar = document.getElementById('rpm-bar');
-                bar.style.width = percent + '%';
+        const connStatus = document.getElementById('conn-status');
+        const dash = document.getElementById('dash');
 
-                // Redline Efekti (8000 deviri geçince ekran çıldırsın)
-                const dash = document.getElementById('dash');
-                if (data.rpm > 8000) {
-                    dash.classList.add('redline-blink');
-                } else {
-                    dash.classList.remove('redline-blink');
-                }
 
-            } catch (error) {
-                document.getElementById('conn-status').innerText = "NO SIGNAL (Run motor.py)";
-                document.getElementById('conn-status').style.color = "red";
+        socket.on('connect', () => {
+            connStatus.innerText = "CONNECTED • LIVE (SOCKET)";
+            connStatus.style.color = "#0f0";
+            console.log("Sunucu bağlı");
+        });
+
+
+        socket.on('disconnect', () => {
+            connStatus.innerText = "CONNECTION LOST";
+            connStatus.style.color = "red";
+        });
+
+        socket.on('telemetry_data', (data) => {
+
+
+            document.getElementById('rpm').innerText = data.rpm;
+            document.getElementById('speed').innerText = String(data.speed).padStart(3, '0');
+            document.getElementById('temp').innerText = data.temp;
+            document.getElementById('gear').innerText = data.gear;
+            document.getElementById('oil').innerText = data.oil;
+            document.getElementById('status-text').innerText = `> ECU STATUS: ${data.status}`;
+
+
+            const percent = (data.rpm / 8250) * 100;
+            const bar = document.getElementById('rpm-bar');
+            bar.style.width = percent + '%';
+
+            if (data.rpm > 8000) {
+                dash.classList.add('redline-blink');
+                bar.style.background = "red";
+            } else {
+                dash.classList.remove('redline-blink');
+                bar.style.background = "linear-gradient(90deg, #00f00, #ffff00, #ff0000)"
             }
-        }
+        });
 
-        // Çok hızlı güncelle (50ms = 20 FPS) - Akıcı görünüm için
-        setInterval(updateDashboard, 50);
     </script>
+
+
+
+
+
+
+
+    
 
 </body>
 </html>
