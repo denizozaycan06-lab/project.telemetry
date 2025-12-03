@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S85 TELEMETRY SYSTEM</title>
+    <style>
+        /* CSS'i buraya gömüyorum, tek dosya olsun rahat çalış */
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #050505;
+            color: #fff;
+            font-family: 'Share Tech Mono', monospace; /* Dijital saat fontu */
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .dashboard {
+            width: 900px;
+            padding: 40px;
+            border: 2px solid #333;
+            border-radius: 20px;
+            background: radial-gradient(circle, #111 0%, #000 100%);
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            position: relative;
+        }
+
+        /* Üst Bilgi Çubuğu */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+            color: #555;
+        }
+
+        /* Ana Göstergeler (Grid) */
+        .gauges {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            text-align: center;
+        }
+
+        .gauge-box h1 {
+            font-size: 5rem;
+            margin: 0;
+            line-height: 1;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+        }
+
+        .label { color: #888; font-size: 1.2rem; display: block; margin-bottom: 10px; }
+        .unit { font-size: 1.5rem; color: #444; }
+
+        /* Vites Kutusu (Ortada Büyük) */
+        .gear-box h1 {
+            font-size: 8rem;
+            color: #FFA500; /* BMW Turuncusu */
+            text-shadow: 0 0 30px rgba(255, 165, 0, 0.4);
+        }
+
+        /* RPM Barı */
+        .rpm-container {
+            margin-top: 40px;
+            width: 100%;
+            height: 20px;
+            background: #222;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .rpm-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #00ff00, #ffff00, #ff0000);
+            transition: width 0.05s linear; /* Çok akıcı */
+        }
+
+        /* Redline Uyarısı */
+        .redline-blink {
+            animation: panic 0.1s infinite;
+            background-color: red !important;
+            color: black !important;
+        }
+
+        @keyframes panic { 0% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        /* Durum Logu */
+        .status-log {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #444;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard" id="dash">
+        <div class="header">
+            <span>BMW S85 B50 V10</span>
+            <span id="conn-status">WAITING FOR DATA...</span>
+        </div>
+
+        <div class="gauges">
+            <div class="left-panel">
+                <div class="gauge-box">
+                    <span class="label">VELOCITY</span>
+                    <h1 id="speed">000</h1>
+                    <span class="unit">KM/H</span>
+                </div>
+                <br>
+                <div class="gauge-box">
+                    <span class="label">OIL TEMP</span>
+                    <h1 id="temp" style="font-size: 3rem;">80</h1>
+                    <span class="unit">°C</span>
+                </div>
+            </div>
+
+            <div class="gauge-box gear-box">
+                <span class="label">GEAR</span>
+                <h1 id="gear">N</h1>
+            </div>
+
+            <div class="right-panel">
+                <div class="gauge-box">
+                    <span class="label">ENGINE SPEED</span>
+                    <h1 id="rpm">0000</h1>
+                    <span class="unit">RPM</span>
+                </div>
+                <br>
+                <div class="gauge-box">
+                    <span class="label">OIL PRESS</span>
+                    <h1 id="oil" style="font-size: 3rem;">1.5</h1>
+                    <span class="unit">BAR</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="rpm-container">
+            <div class="rpm-fill" id="rpm-bar"></div>
+        </div>
+
+        <div class="status-log" id="status-text">SYSTEM STANDBY</div>
+    </div>
+
+    <script>
+        // --- 3. JavaScript: Veri Bağlantısı ---
+        
+        async function updateDashboard() {
+            try {
+                // Rastgele sayı ekleyerek önbelleği (cache) kırıyoruz
+                const response = await fetch('data.json?t=' + Date.now());
+                const data = await response.json();
+
+                // Verileri Yerleştir
+                document.getElementById('rpm').innerText = data.rpm;
+                document.getElementById('speed').innerText = String(data.speed).padStart(3, '0');
+                document.getElementById('temp').innerText = data.temp;
+                document.getElementById('gear').innerText = data.gear;
+                document.getElementById('oil').innerText = data.oil;
+                document.getElementById('status-text').innerText = `> ECU STATUS: ${data.status}`;
+                document.getElementById('conn-status').innerText = "CONNECTED • LIVE";
+                document.getElementById('conn-status').style.color = "#0f0";
+
+                // RPM Barı Hesapla
+                const percent = (data.rpm / 8250) * 100;
+                const bar = document.getElementById('rpm-bar');
+                bar.style.width = percent + '%';
+
+                // Redline Efekti (8000 deviri geçince ekran çıldırsın)
+                const dash = document.getElementById('dash');
+                if (data.rpm > 8000) {
+                    dash.classList.add('redline-blink');
+                } else {
+                    dash.classList.remove('redline-blink');
+                }
+
+            } catch (error) {
+                document.getElementById('conn-status').innerText = "NO SIGNAL (Run motor.py)";
+                document.getElementById('conn-status').style.color = "red";
+            }
+        }
+
+        // Çok hızlı güncelle (50ms = 20 FPS) - Akıcı görünüm için
+        setInterval(updateDashboard, 50);
+    </script>
+
+</body>
+</html>
